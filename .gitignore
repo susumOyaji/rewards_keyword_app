@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 #/build/
+# build/web 以下は追跡する
+!build/
+!build/web/
 
 # Symbolication related
 app.*.symbols
