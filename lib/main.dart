@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart' as html;
@@ -131,67 +132,86 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       appBar: AppBar(
         title: const Text('Microsoft Rewards Keywords'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0), // HTML body padding
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(child: Text('Error: $_error'))
-                : ListView.builder(
-                    itemCount: _keywordCategories.length,
-                    itemBuilder: (context, index) {
-                      final category = _keywordCategories[index];
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.only(bottom: 5.0, top: 10.0), // h2 padding-bottom and top for spacing
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: Color(0xFFCCCCCC), width: 1.0), // h2 border-bottom
-                              ),
-                            ),
-                            child: Text(
-                              category.name,
-                              style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold), // h2 color and style
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0), // ul margin-left and vertical spacing
-                            child: Wrap(
-                              spacing: 8.0, // space between chips
-                              runSpacing: 4.0, // space between lines of chips
-                                                            children: category.keywords.map((keyword) {
-                                return Row(
-                                  mainAxisSize: MainAxisSize.min, // Rowを内容のサイズに合わせる
-                                  children: [
-                                    Radio<String>(
-                                      value: keyword,
-                                      groupValue: _selectedKeyword,
-                                      onChanged: (String? value) {
-                                        if (value != null) {
-                                          setState(() {
-                                            _selectedKeyword = value;
-                                          });
-                                          Clipboard.setData(ClipboardData(text: value));
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Copied to clipboard'),
-                                            ),
-                                          );
-                                        }
-                                      },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: InkWell(
+              onTap: () => launchUrl(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/#movie')),
+              child: const Text(
+                '出典: yoshizo.hatenablog.com',
+                style: TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0), // HTML body padding
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(child: Text('Error: $_error'))
+                      : ListView.builder(
+                          itemCount: _keywordCategories.length,
+                          itemBuilder: (context, index) {
+                            final category = _keywordCategories[index];
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.only(bottom: 5.0, top: 10.0), // h2 padding-bottom and top for spacing
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(color: Color(0xFFCCCCCC), width: 1.0), // h2 border-bottom
                                     ),
-                                    Text(keyword),
-                                  ],
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                                  ),
+                                  child: Text(
+                                    category.name,
+                                    style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold), // h2 color and style
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0), // ul margin-left and vertical spacing
+                                  child: Wrap(
+                                    spacing: 8.0, // space between chips
+                                    runSpacing: 4.0, // space between lines of chips
+                                    children: category.keywords.map((keyword) {
+                                      return Row(
+                                        mainAxisSize: MainAxisSize.min, // Rowを内容のサイズに合わせる
+                                        children: [
+                                          Radio<String>(
+                                            value: keyword,
+                                            groupValue: _selectedKeyword,
+                                            onChanged: (String? value) {
+                                              if (value != null) {
+                                                setState(() {
+                                                  _selectedKeyword = value;
+                                                });
+                                                Clipboard.setData(ClipboardData(text: value));
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Copied to clipboard'),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                          Text(keyword),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+            ),
+          ),
+        ],
       ),
     );
   }
