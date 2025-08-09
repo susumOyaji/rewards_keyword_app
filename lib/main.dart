@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart' as html;
@@ -116,7 +117,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
           _isLoading = false;
         });
       }
-    } catch (e, stacktrace) {
+    } catch (e) {
       setState(() {
         _error = 'Error fetching keywords: $e';
         _isLoading = false;
@@ -168,9 +169,17 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
                                       value: keyword,
                                       groupValue: _selectedKeyword,
                                       onChanged: (String? value) {
-                                        setState(() {
-                                          _selectedKeyword = value;
-                                        });
+                                        if (value != null) {
+                                          setState(() {
+                                            _selectedKeyword = value;
+                                          });
+                                          Clipboard.setData(ClipboardData(text: value));
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Copied to clipboard'),
+                                            ),
+                                          );
+                                        }
                                       },
                                     ),
                                     Text(keyword),
