@@ -1,0 +1,17 @@
+name = "rewards-keyword-worker"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-08-15"
+
+#main = "pkg/worker.js"
+
+[build]
+# Changed --target from "worker" to "bundler"
+#command = "wasm-pack build --target bundler --out-dir pkg"
+command = "cargo install -q worker-build && worker-build --release"
+
+
+
+[[kv_namespaces]]
+binding = "MY_KV"
+id = "eab85e4597024c78976875c753a9f4f4"       # 本番用ID
+preview_id = "04ad317aec2e4aa1a811f13e2a914f16" # プレビュー用ID

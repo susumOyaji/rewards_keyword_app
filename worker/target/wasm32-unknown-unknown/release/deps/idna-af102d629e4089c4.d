@@ -1,0 +1,10 @@
+/Users/sumitomoshigeru/Documents/GitHub/rewards_keyword_app/worker/target/wasm32-unknown-unknown/release/deps/libidna-af102d629e4089c4.rmeta: /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/lib.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/deprecated.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/punycode.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/uts46.rs
+
+/Users/sumitomoshigeru/Documents/GitHub/rewards_keyword_app/worker/target/wasm32-unknown-unknown/release/deps/libidna-af102d629e4089c4.rlib: /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/lib.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/deprecated.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/punycode.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/uts46.rs
+
+/Users/sumitomoshigeru/Documents/GitHub/rewards_keyword_app/worker/target/wasm32-unknown-unknown/release/deps/idna-af102d629e4089c4.d: /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/lib.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/deprecated.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/punycode.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/uts46.rs
+
+/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/lib.rs:
+/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/deprecated.rs:
+/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/punycode.rs:
+/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/idna-1.0.3/src/uts46.rs:

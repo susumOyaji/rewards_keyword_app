@@ -48,4 +48,4 @@ app.*.map.json
 /android/app/release
 
 #flutter build web --release --base-href=/
-
+#flutter run -d chrome --web-port 8080
