@@ -47,6 +47,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   bool _isLoading = true;
   String? _error;
   String? _selectedKeyword;
+  String _rawJsonResponse = ''; // Added to hold the raw JSON response
 
   @override
   void initState() {
@@ -61,13 +62,28 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     try {
       final response = await http.get(Uri.parse('https://rewards-keyword-worker.sumitomo0210.workers.dev/get'));
       if (response.statusCode == 200) {
-        final decodedMap = jsonDecode(response.body) as Map<String, dynamic>;
-        _userKeywords = decodedMap.map((key, value) => MapEntry(key, List<String>.from(value)));
-      } else if (response.statusCode != 404) {
+        // Pretty print JSON
+        const jsonEncoder = JsonEncoder.withIndent('  ');
+        final decodedMap = jsonDecode(response.body);
+        setState(() {
+          _rawJsonResponse = jsonEncoder.convert(decodedMap);
+        });
+        _userKeywords = (decodedMap as Map<String, dynamic>).map((key, value) => MapEntry(key, List<String>.from(value)));
+      } else if (response.statusCode == 404) {
+        setState(() {
+          _rawJsonResponse = 'No data found on server (404).';
+        });
         // 404 (Not Found) is okay, just means no data yet. Other errors are problems.
+      } else {
+        setState(() {
+          _rawJsonResponse = 'Error fetching data: ${response.statusCode}\n${response.body}';
+        });
         _error = 'Failed to load saved keywords: ${response.statusCode}';
       }
     } catch (e) {
+      setState(() {
+        _rawJsonResponse = 'Error connecting to keyword server: $e';
+      });
       _error = 'Error connecting to keyword server: $e';
     }
 
@@ -112,10 +128,10 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
         }
         _fetchedKeywords = fetched;
       } else {
-         _error = (_error ?? '') + '\nFailed to load web keywords: ${response.statusCode}';
+         _error = '${_error ?? ''}\nFailed to load web keywords: ${response.statusCode}';
       }
     } catch (e) {
-      _error = (_error ?? '') + '\nError fetching web keywords: $e';
+      _error = '${_error ?? ''}\nError fetching web keywords: $e';
     }
 
     // 3. Merge data and update UI
@@ -202,6 +218,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Microsoft Rewards Keywords'),
       ),
@@ -255,6 +272,18 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
                       ? Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)))
                       : ListView(children: _buildCategoryWidgets()),
             ),
+          ),
+          // Added ExpansionTile to show raw JSON
+          ExpansionTile(
+            title: const Text('Raw JSON Data from Cloudflare'),
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16.0),
+                color: Colors.blueGrey[50],
+                child: SelectableText(_rawJsonResponse),
+              ),
+            ],
           ),
         ],
       ),
