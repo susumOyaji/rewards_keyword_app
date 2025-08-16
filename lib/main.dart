@@ -231,41 +231,59 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
               child: const Text('出典: yoshizo.hatenablog.com', style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    decoration: const InputDecoration(labelText: 'Add a keyword'),
+          Card(
+            elevation: 2.0,
+            margin: const EdgeInsets.all(8.0),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_displayKeywords.isNotEmpty)
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true, // Add this to prevent overflow
+                        value: _selectedCategory,
+                        hint: const Text('Category'),
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _displayKeywords.keys.map((String category) {
+                          return DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(category, overflow: TextOverflow.ellipsis),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedCategory = newValue;
+                          });
+                        },
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 1, // Changed from 2 to 1
+                    child: TextField(
+                      controller: _textController,
+                      decoration: const InputDecoration(
+                        labelText: 'Add a keyword',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
                   ),
-                ),
-                if (_displayKeywords.isNotEmpty)
-                  DropdownButton<String>(
-                    value: _selectedCategory,
-                    hint: const Text('Category'),
-                    items: _displayKeywords.keys.map((String category) {
-                      return DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(category),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedCategory = newValue;
-                      });
-                    },
-                  ),
-                IconButton(icon: const Icon(Icons.add), onPressed: _addKeyword),
-                // The "export" button now saves to KV
-                IconButton(icon: const Icon(Icons.save), onPressed: _saveKeywordsToKV, tooltip: 'Save keywords to Cloud'),
-              ],
+                  const SizedBox(width: 8),
+                  IconButton(icon: const Icon(Icons.add), onPressed: _addKeyword, tooltip: 'Add keyword'),
+                  IconButton(icon: const Icon(Icons.save), onPressed: _saveKeywordsToKV, tooltip: 'Save keywords to Cloud'),
+                ],
+              ),
             ),
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
@@ -294,54 +312,52 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     return _displayKeywords.entries.map((entry) {
       final category = entry.key;
       final keywords = entry.value;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.only(bottom: 5.0, top: 10.0),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFCCCCCC), width: 1.0))),
-            child: Text(category, style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold)),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0),
-            child: Wrap(
-              spacing: 8.0,
-              runSpacing: 4.0,
-              children: keywords.map((keyword) {
-                final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Radio<String>(
-                      value: keyword,
-                      groupValue: _selectedKeyword,
-                      onChanged: (String? value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedKeyword = value;
-                          });
-                          Clipboard.setData(ClipboardData(text: value));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Copied to clipboard')),
-                          );
-                        }
-                      },
-                    ),
-                    Flexible(child: Text(keyword)),
-                    if (isUserKeyword)
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 14),
-                        onPressed: () => _removeKeyword(category, keyword),
-                        tooltip: 'Remove keyword',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
+        child: ExpansionTile(
+          title: Text(category, style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold)),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0, right: 20.0),
+              child: Wrap(
+                spacing: 8.0,
+                runSpacing: 4.0,
+                children: keywords.map((keyword) {
+                  final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Radio<String>(
+                        value: keyword,
+                        groupValue: _selectedKeyword,
+                        onChanged: (String? value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedKeyword = value;
+                            });
+                            Clipboard.setData(ClipboardData(text: value));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Copied to clipboard')),
+                            );
+                          }
+                        },
                       ),
-                  ],
-                );
-              }).toList(),
+                      Flexible(child: Text(keyword)),
+                      if (isUserKeyword)
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 14),
+                          onPressed: () => _removeKeyword(category, keyword),
+                          tooltip: 'Remove keyword',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }).toList();
   }
