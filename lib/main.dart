@@ -1,12 +1,10 @@
 import 'dart:convert';
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:html/dom.dart' as dom;
-
 
 void main() {
   runApp(const MyApp());
@@ -22,6 +20,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        useMaterial3: true,
       ),
       home: const KeywordListScreen(),
     );
@@ -39,7 +38,6 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   // Data states
   Map<String, List<String>> _fetchedKeywords = {};
   Map<String, List<String>> _userKeywords = {};
-  Map<String, List<String>> _displayKeywords = {};
 
   // UI states
   final TextEditingController _textController = TextEditingController();
@@ -47,98 +45,10 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   bool _isLoading = true;
   String? _error;
   String? _selectedKeyword;
-  String _rawJsonResponse = ''; // Added to hold the raw JSON response
+  String _rawJsonResponse = '';
 
-  @override
-  void initState() {
-    super.initState();
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    setState(() { _isLoading = true; _error = null; });
-
-    // 1. Fetch user keywords from Cloudflare KV
-    try {
-      final response = await http.get(Uri.parse('https://rewards-keyword-worker.sumitomo0210.workers.dev/get'));
-      if (response.statusCode == 200) {
-        // Pretty print JSON
-        const jsonEncoder = JsonEncoder.withIndent('  ');
-        final decodedMap = jsonDecode(response.body);
-        setState(() {
-          _rawJsonResponse = jsonEncoder.convert(decodedMap);
-        });
-        _userKeywords = (decodedMap as Map<String, dynamic>).map((key, value) => MapEntry(key, List<String>.from(value)));
-      } else if (response.statusCode == 404) {
-        setState(() {
-          _rawJsonResponse = 'No data found on server (404).';
-        });
-        // 404 (Not Found) is okay, just means no data yet. Other errors are problems.
-      } else {
-        setState(() {
-          _rawJsonResponse = 'Error fetching data: ${response.statusCode}\n${response.body}';
-        });
-        _error = 'Failed to load saved keywords: ${response.statusCode}';
-      }
-    } catch (e) {
-      setState(() {
-        _rawJsonResponse = 'Error connecting to keyword server: $e';
-      });
-      _error = 'Error connecting to keyword server: $e';
-    }
-
-    // 2. Fetch base keywords from web
-    try {
-      final response = await http.get(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/#movie'));
-      if (response.statusCode == 200) {
-        final document = parse(response.body);
-        final fetched = <String, List<String>>{};
-        final h3Elements = document.querySelectorAll('h3');
-
-        for (var h3 in h3Elements) {
-          final categoryName = h3.text.trim();
-          final keywords = <String>[];
-          dom.Element? currentElement = h3.nextElementSibling;
-          dom.Element? foundUl;
-
-          while (currentElement != null) {
-            if (currentElement.localName == 'ul') {
-              foundUl = currentElement;
-              break;
-            }
-            if (currentElement.localName == 'h3') break;
-            final ulInDescendants = currentElement.querySelector('ul');
-            if (ulInDescendants != null) {
-              foundUl = ulInDescendants;
-              break;
-            }
-            currentElement = currentElement.nextElementSibling;
-          }
-
-          if (foundUl != null) {
-            final liElements = foundUl.querySelectorAll('li');
-            for (var li in liElements) {
-              String keywordText = li.text.trim().replaceAll(RegExp(r'\(.*?\)'), '').trim();
-              keywordText = keywordText.replaceAll(RegExp(r'^\d+\.\s*'), '').trim();
-              keywordText = keywordText.replaceAll(RegExp(r'^-+\s*'), '').trim();
-              if (keywordText.isNotEmpty) keywords.add(keywordText);
-            }
-          }
-          if (keywords.isNotEmpty) fetched[categoryName] = keywords;
-        }
-        _fetchedKeywords = fetched;
-      } else {
-         _error = '${_error ?? ''}\nFailed to load web keywords: ${response.statusCode}';
-      }
-    } catch (e) {
-      _error = '${_error ?? ''}\nError fetching web keywords: $e';
-    }
-
-    // 3. Merge data and update UI
-    _mergeKeywordsAndRefreshUi();
-  }
-
-  void _mergeKeywordsAndRefreshUi() {
+  // Getter for merged keywords
+  Map<String, List<String>> get _displayKeywords {
     final merged = <String, List<String>>{};
     _fetchedKeywords.forEach((category, keywords) {
       merged[category] = List.from(keywords);
@@ -156,33 +66,124 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
         merged[category] = List.from(keywords);
       }
     });
+    return merged;
+  }
 
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
     setState(() {
-      _displayKeywords = merged;
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      await _fetchUserKeywords();
+      await _fetchAndParseWebKeywords();
+
       if (_selectedCategory == null && _displayKeywords.isNotEmpty) {
         _selectedCategory = _displayKeywords.keys.first;
       }
-      _isLoading = false;
-    });
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchUserKeywords() async {
+    try {
+      final response = await http.get(Uri.parse('https://rewards-keyword-worker.sumitomo0210.workers.dev/get'));
+      if (response.statusCode == 200) {
+        const jsonEncoder = JsonEncoder.withIndent('  ');
+        final decodedMap = jsonDecode(response.body);
+        _rawJsonResponse = jsonEncoder.convert(decodedMap);
+        _userKeywords = (decodedMap as Map<String, dynamic>).map((key, value) => MapEntry(key, List<String>.from(value)));
+      } else if (response.statusCode == 404) {
+        _rawJsonResponse = 'No data found on server (404).';
+      } else {
+        _rawJsonResponse = 'Error fetching data: ${response.statusCode}\n${response.body}';
+        throw 'Failed to load saved keywords: ${response.statusCode}';
+      }
+    } catch (e) {
+      _rawJsonResponse = 'Error connecting to keyword server: $e';
+      throw 'Error connecting to keyword server: $e';
+    }
+  }
+
+  Future<void> _fetchAndParseWebKeywords() async {
+    try {
+      final response = await http.get(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/'));
+      if (response.statusCode == 200) {
+        _fetchedKeywords = _parseKeywordsFromHtml(response.body);
+      } else {
+        throw 'Failed to load web keywords: ${response.statusCode}';
+      }
+    } catch (e) {
+      throw 'Error fetching web keywords: $e';
+    }
+  }
+
+  Map<String, List<String>> _parseKeywordsFromHtml(String htmlBody) {
+    final document = parse(htmlBody);
+    final fetched = <String, List<String>>{};
+    final h3Elements = document.querySelectorAll('h3');
+
+    for (var h3 in h3Elements) {
+      final categoryName = h3.text.trim();
+      final keywords = <String>[];
+      dom.Element? currentElement = h3.nextElementSibling;
+      dom.Element? foundUl;
+
+      while (currentElement != null) {
+        if (currentElement.localName == 'ul') {
+          foundUl = currentElement;
+          break;
+        }
+        if (currentElement.localName == 'h3') break;
+        final ulInDescendants = currentElement.querySelector('ul');
+        if (ulInDescendants != null) {
+          foundUl = ulInDescendants;
+          break;
+        }
+        currentElement = currentElement.nextElementSibling;
+      }
+
+      if (foundUl != null) {
+        final liElements = foundUl.querySelectorAll('li');
+        for (var li in liElements) {
+          String keywordText = li.text.trim().replaceAll(RegExp(r'\(.*?\)'), '').trim();
+          keywordText = keywordText.replaceAll(RegExp(r'^\d+\.\s*'), '').trim();
+          keywordText = keywordText.replaceAll(RegExp(r'^-+\s*'), '').trim();
+          if (keywordText.isNotEmpty) keywords.add(keywordText);
+        }
+      }
+      if (keywords.isNotEmpty) fetched[categoryName] = keywords;
+    }
+    return fetched;
   }
 
   Future<void> _saveKeywordsToKV() async {
-    // This function now saves the USER-ADDED keywords to KV.
     final url = Uri.parse('https://rewards-keyword-worker.sumitomo0210.workers.dev/save');
     final headers = {'Content-Type': 'application/json'};
-    // We only save the keywords that are in _userKeywords, not the merged list.
     final body = jsonEncode(_userKeywords);
 
     try {
       final response = await http.post(url, headers: headers, body: body);
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keywords saved successfully!')), 
+          const SnackBar(content: Text('Keywords saved successfully!')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save keywords. Server responded with ${response.statusCode}')),
-        );
+        throw 'Server responded with ${response.statusCode}';
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -194,25 +195,27 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   void _addKeyword() {
     final String text = _textController.text.trim();
     if (text.isNotEmpty && _selectedCategory != null) {
-      final userCategoryKeywords = _userKeywords.putIfAbsent(_selectedCategory!, () => []);
-      if (!userCategoryKeywords.contains(text)) {
-        userCategoryKeywords.add(text);
-      }
-      _textController.clear();
-      _saveKeywordsToKV(); // Changed to save to KV
-      _mergeKeywordsAndRefreshUi();
+      setState(() {
+        final userCategoryKeywords = _userKeywords.putIfAbsent(_selectedCategory!, () => []);
+        if (!userCategoryKeywords.contains(text)) {
+          userCategoryKeywords.add(text);
+        }
+        _textController.clear();
+      });
+      _saveKeywordsToKV();
     }
   }
 
   void _removeKeyword(String category, String keyword) {
-    if (_userKeywords.containsKey(category)) {
-      _userKeywords[category]!.remove(keyword);
-      if (_userKeywords[category]!.isEmpty) {
-        _userKeywords.remove(category);
+    setState(() {
+      if (_userKeywords.containsKey(category)) {
+        _userKeywords[category]!.remove(keyword);
+        if (_userKeywords[category]!.isEmpty) {
+          _userKeywords.remove(category);
+        }
       }
-    }
-    _saveKeywordsToKV(); // Changed to save to KV
-    _mergeKeywordsAndRefreshUi();
+    });
+    _saveKeywordsToKV();
   }
 
   @override
@@ -224,141 +227,159 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: InkWell(
-              onTap: () => launchUrl(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/#movie')),
-              child: const Text('出典: yoshizo.hatenablog.com', style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
-            ),
-          ),
-          Card(
-            elevation: 2.0,
-            margin: const EdgeInsets.all(8.0),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_displayKeywords.isNotEmpty)
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true, // Add this to prevent overflow
-                        value: _selectedCategory,
-                        hint: const Text('Category'),
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: _displayKeywords.keys.map((String category) {
-                          return DropdownMenuItem<String>(
-                            value: category,
-                            child: Text(category, overflow: TextOverflow.ellipsis),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedCategory = newValue;
-                          });
-                        },
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 1, // Changed from 2 to 1
-                    child: TextField(
-                      controller: _textController,
-                      decoration: const InputDecoration(
-                        labelText: 'Add a keyword',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(icon: const Icon(Icons.add), onPressed: _addKeyword, tooltip: 'Add keyword'),
-                  IconButton(icon: const Icon(Icons.save), onPressed: _saveKeywordsToKV, tooltip: 'Save keywords to Cloud'),
-                ],
-              ),
-            ),
-          ),
+          _buildSourceLink(),
+          _buildControlPanel(),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)))
-                      : ListView(children: _buildCategoryWidgets()),
-            ),
+            child: _buildBodyContent(),
           ),
-          // Added ExpansionTile to show raw JSON
-          ExpansionTile(
-            title: const Text('Raw JSON Data from Cloudflare'),
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                color: Colors.blueGrey[50],
-                child: SelectableText(_rawJsonResponse),
-              ),
-            ],
-          ),
+          _buildRawJsonDisplay(),
         ],
       ),
     );
   }
 
-  List<Widget> _buildCategoryWidgets() {
-    return _displayKeywords.entries.map((entry) {
-      final category = entry.key;
-      final keywords = entry.value;
-      return Card(
-        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
-        child: ExpansionTile(
-          title: Text(category, style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold)),
+  Widget _buildBodyContent() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)));
+    }
+    return _buildKeywordList();
+  }
+
+  Widget _buildSourceLink() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: InkWell(
+        onTap: () => launchUrl(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/')),
+        child: const Text('Source: yoshizo.hatenablog.com', style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+      ),
+    );
+  }
+
+  Widget _buildControlPanel() {
+    return Card(
+      elevation: 2.0,
+      margin: const EdgeInsets.all(8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0, right: 20.0),
-              child: Wrap(
-                spacing: 8.0,
-                runSpacing: 4.0,
-                children: keywords.map((keyword) {
-                  final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Radio<String>(
-                        value: keyword,
-                        groupValue: _selectedKeyword,
-                        onChanged: (String? value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedKeyword = value;
-                            });
-                            Clipboard.setData(ClipboardData(text: value));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Copied to clipboard')),
-                            );
-                          }
-                        },
-                      ),
-                      Flexible(child: Text(keyword)),
-                      if (isUserKeyword)
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 14),
-                          onPressed: () => _removeKeyword(category, keyword),
-                          tooltip: 'Remove keyword',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                    ],
-                  );
-                }).toList(),
+            if (_displayKeywords.isNotEmpty)
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  value: _selectedCategory,
+                  hint: const Text('Category'),
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _displayKeywords.keys.map((String category) {
+                    return DropdownMenuItem<String>(
+                      value: category,
+                      child: Text(category, overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedCategory = newValue;
+                    });
+                  },
+                ),
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 1,
+              child: TextField(
+                controller: _textController,
+                decoration: const InputDecoration(
+                  labelText: 'Add a keyword',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ),
+            const SizedBox(width: 8),
+            IconButton(icon: const Icon(Icons.add), onPressed: _addKeyword, tooltip: 'Add keyword'),
+            IconButton(icon: const Icon(Icons.save), onPressed: _saveKeywordsToKV, tooltip: 'Save keywords to Cloud'),
           ],
         ),
-      );
-    }).toList();
+      ),
+    );
+  }
+
+  Widget _buildKeywordList() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+      children: _displayKeywords.entries.map((entry) {
+        final category = entry.key;
+        final keywords = entry.value;
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
+          child: ExpansionTile(
+            title: Text(category, style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold)),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0, right: 20.0),
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 4.0,
+                  children: keywords.map((keyword) => _buildKeywordItem(category, keyword)).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildKeywordItem(String category, String keyword) {
+    final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [        Radio<String>(
+          value: keyword,
+          groupValue: _selectedKeyword,
+          onChanged: (String? value) {
+            if (value != null) {
+              setState(() {
+                _selectedKeyword = value;
+              });
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
+              );
+            }
+          },
+        ),
+        Flexible(child: Text(keyword)),
+        if (isUserKeyword)
+          IconButton(
+            icon: const Icon(Icons.close, size: 14),
+            onPressed: () => _removeKeyword(category, keyword),
+            tooltip: 'Remove keyword',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRawJsonDisplay() {
+    return ExpansionTile(
+      title: const Text('Raw JSON Data from Cloudflare'),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16.0),
+          color: Colors.blueGrey[50],
+          child: SelectableText(_rawJsonResponse),
+        ),
+      ],
+    );
   }
 }
