@@ -49,3 +49,6 @@ app.*.map.json
 
 #flutter build web --release --base-href=/
 #flutter run -d chrome --web-port 8080
+
+#flutter run -d chrome --wasm
+#flutter build web --wasm
