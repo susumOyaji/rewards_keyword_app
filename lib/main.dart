@@ -272,7 +272,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
                 flex: 2,
                 child: DropdownButtonFormField<String>(
                   isExpanded: true,
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   hint: const Text('Category'),
                   decoration: const InputDecoration(
                     labelText: 'Category',
