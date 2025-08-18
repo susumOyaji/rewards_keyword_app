@@ -288,16 +288,14 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Microsoft Rewards Keywords'),
-        actions: [
-          IconButton(
+        actions: [          IconButton(
             icon: Icon(isCurrentlyDark ? Icons.light_mode : Icons.dark_mode),
             tooltip: 'Toggle Theme',
             onPressed: () {
               final newMode = isCurrentlyDark ? ThemeMode.light : ThemeMode.dark;
               widget.onThemeModeChanged(newMode);
             },
-          ),
-        ],
+          ),        ],
       ),
       body: Column(
         children: [
@@ -323,11 +321,12 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   }
 
   Widget _buildSourceLink() {
+    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: InkWell(
         onTap: () => launchUrl(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/')),
-        child: Text('Source: yoshizo.hatenablog.com', style: TextStyle(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline)),
+        child: Text('Source: yoshizo.hatenablog.com', style: referenceStyle?.copyWith(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline)),
       ),
     );
   }
@@ -335,6 +334,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   Widget _buildControlPanel() {
     final availableCategories = _displayKeywords.keys.toList();
     final isCategorySelected = availableCategories.contains(_selectedCategory);
+    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
 
     return Card(
       elevation: 2.0,
@@ -342,23 +342,25 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (availableCategories.isNotEmpty)
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
+                  style: referenceStyle,
                   isExpanded: true,
                   value: isCategorySelected ? _selectedCategory : null,
-                  hint: const Text('Category'),
-                  decoration: const InputDecoration(
+                  hint: Text('Category', style: referenceStyle?.copyWith(color: Theme.of(context).hintColor)),
+                  decoration: InputDecoration(
                     labelText: 'Category',
-                    border: OutlineInputBorder(),
+                    labelStyle: referenceStyle,
+                    border: const OutlineInputBorder(),
                   ),
                   items: availableCategories.map((String category) {
                     return DropdownMenuItem<String>(
                       value: category,
-                      child: Text(category, overflow: TextOverflow.ellipsis),
+                      child: Text(category, style: referenceStyle, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
@@ -372,15 +374,16 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
             Expanded(
               flex: 1,
               child: TextField(
+                style: referenceStyle,
                 controller: _textController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Add a keyword',
-                  border: OutlineInputBorder(),
+                  labelStyle: referenceStyle,
+                  border: const OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _addKeyword(),
               ),
-            ),
-            const SizedBox(width: 8),
+            ),            const SizedBox(width: 8),
             IconButton(icon: const Icon(Icons.add), onPressed: _addKeyword, tooltip: 'Add keyword'),
             IconButton(icon: const Icon(Icons.save), onPressed: _saveKeywordsToKV, tooltip: 'Save keywords to Cloud'),
           ],
@@ -400,7 +403,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
           child: ExpansionTile(
             title: Text(
               category,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -422,8 +425,10 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
 
   Widget _buildKeywordItem(String category, String keyword) {
     final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
+    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
     return InputChip(
       label: Text(keyword),
+      labelStyle: referenceStyle,
       selected: _selectedKeyword == keyword,
       pressElevation: 2.0,
       selectedColor: Theme.of(context).colorScheme.primaryContainer,
@@ -441,14 +446,15 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   }
 
   Widget _buildRawJsonDisplay() {
+    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
     return ExpansionTile(
-      title: const Text('Raw JSON Data from Cloudflare'),
+      title: Text('Raw JSON Data from Cloudflare', style: referenceStyle),
       children: [
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16.0),
           color: Theme.of(context).colorScheme.surfaceVariant,
-          child: SelectableText(_rawJsonResponse),
+          child: SelectableText(_rawJsonResponse, style: referenceStyle),
         ),
       ],
     );
