@@ -160,10 +160,19 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       if (foundUl != null) {
         final liElements = foundUl.querySelectorAll('li');
         for (var li in liElements) {
-          String keywordText = li.text.trim().replaceAll(RegExp(r'\(.*?\)'), '').trim();
-          keywordText = keywordText.replaceAll(RegExp(r'^\d+\.\s*'), '').trim();
-          keywordText = keywordText.replaceAll(RegExp(r'^-+\s*'), '').trim();
-          if (keywordText.isNotEmpty) keywords.add(keywordText);
+          // テキストを整形:
+          // - "(...)" のような括弧書きを削除
+          // - "1. " のような行頭の数字付きリストマーカーを削除
+          // - "--- " のような行頭のハイフンマーカーを削除
+          final keywordText = li.text
+              .replaceAll(RegExp(r'\(.*?\)'), '')
+              .replaceAll(RegExp(r'^\d+\.\s*'), '')
+              .replaceAll(RegExp(r'^-+\s*'), '')
+              .trim();
+
+          if (keywordText.isNotEmpty) {
+            keywords.add(keywordText);
+          }
         }
       }
       if (keywords.isNotEmpty) fetched[categoryName] = keywords;
