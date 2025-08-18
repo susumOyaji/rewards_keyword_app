@@ -97,26 +97,28 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   String? _selectedKeyword;
   String _rawJsonResponse = '';
 
-  // Getter for merged keywords
-  Map<String, List<String>> get _displayKeywords {
-    final merged = <String, List<String>>{};
-    _fetchedKeywords.forEach((category, keywords) {
-      merged[category] = List.from(keywords);
-    });
+  // --- 共通SnackBar表示 ---
+  void _showSnackBar(String message, {bool error = false, Duration duration = const Duration(seconds: 2)}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? Theme.of(context).colorScheme.error : null,
+        duration: duration,
+      ),
+    );
+  }
 
-    _userKeywords.forEach((category, keywords) {
-      if (merged.containsKey(category)) {
-        final existingKeywords = merged[category]!;
-        for (var keyword in keywords) {
-          if (!existingKeywords.contains(keyword)) {
-            existingKeywords.add(keyword);
-          }
-        }
-      } else {
-        merged[category] = List.from(keywords);
-      }
+  // --- キーワードマージ処理(Setで重複排除) ---
+  Map<String, List<String>> get _displayKeywords {
+    final merged = <String, Set<String>>{};
+    _fetchedKeywords.forEach((category, keywords) {
+      merged[category] = {...keywords};
     });
-    return merged;
+    _userKeywords.forEach((category, keywords) {
+      merged.putIfAbsent(category, () => <String>{});
+      merged[category]!.addAll(keywords);
+    });
+    return merged.map((k, v) => MapEntry(k, v.toList()));
   }
 
   @override
@@ -210,10 +212,6 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       if (foundUl != null) {
         final liElements = foundUl.querySelectorAll('li');
         for (var li in liElements) {
-          // テキストを整形:
-          // - "(...)" のような括弧書きを削除
-          // - "1. " のような行頭の数字付きリストマーカーを削除
-          // - "--- " のような行頭のハイフンマーカーを削除
           final keywordText = li.text
               .replaceAll(RegExp(r'\(.*?\)'), '')
               .replaceAll(RegExp(r'^\d+\.\s*'), '')
@@ -238,16 +236,12 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     try {
       final response = await http.post(url, headers: headers, body: body);
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keywords saved successfully!')),
-        );
+        _showSnackBar('Keywords saved successfully!');
       } else {
         throw 'Server responded with ${response.statusCode}';
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving keywords: $e')),
-      );
+      _showSnackBar('Error saving keywords: $e', error: true);
     }
   }
 
@@ -272,7 +266,6 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
           _userKeywords.remove(category);
         }
       }
-      // If the selected category was just removed (and it was a user-only category), reset the selection.
       if (!_displayKeywords.keys.contains(_selectedCategory)) {
         _selectedCategory = _displayKeywords.keys.isNotEmpty ? _displayKeywords.keys.first : null;
       }
@@ -284,57 +277,72 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     final isCurrentlyDark = widget.themeMode == ThemeMode.system
         ? MediaQuery.of(context).platformBrightness == Brightness.dark
         : widget.themeMode == ThemeMode.dark;
+    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Microsoft Rewards Keywords'),
-        actions: [          IconButton(
+        actions: [
+          IconButton(
             icon: Icon(isCurrentlyDark ? Icons.light_mode : Icons.dark_mode),
             tooltip: 'Toggle Theme',
             onPressed: () {
               final newMode = isCurrentlyDark ? ThemeMode.light : ThemeMode.dark;
               widget.onThemeModeChanged(newMode);
             },
-          ),        ],
+          ),
+        ],
       ),
       body: Column(
         children: [
-          _buildSourceLink(),
-          _buildControlPanel(),
+          _buildSourceLink(referenceStyle),
+          _buildControlPanel(referenceStyle),
           Expanded(
-            child: _buildBodyContent(),
+            child: _buildBodyContent(referenceStyle),
           ),
-          _buildRawJsonDisplay(),
+          _buildRawJsonDisplay(referenceStyle),
         ],
       ),
     );
   }
 
-  Widget _buildBodyContent() {
+  Widget _buildBodyContent(TextStyle? referenceStyle) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text('Error: $_error', style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)));
+      return Center(
+        child: Text(
+          'Error: $_error',
+          style: referenceStyle?.copyWith(
+            color: Theme.of(context).colorScheme.error,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     }
-    return _buildKeywordList();
+    return _buildKeywordList(referenceStyle);
   }
 
-  Widget _buildSourceLink() {
-    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
+  Widget _buildSourceLink(TextStyle? referenceStyle) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: InkWell(
         onTap: () => launchUrl(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/')),
-        child: Text('Source: yoshizo.hatenablog.com', style: referenceStyle?.copyWith(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline)),
+        child: Text(
+          'Source: yoshizo.hatenablog.com',
+          style: referenceStyle?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            decoration: TextDecoration.underline,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildControlPanel() {
+  Widget _buildControlPanel(TextStyle? referenceStyle) {
     final availableCategories = _displayKeywords.keys.toList();
     final isCategorySelected = availableCategories.contains(_selectedCategory);
-    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
 
     return Card(
       elevation: 2.0,
@@ -383,7 +391,8 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
                 ),
                 onSubmitted: (_) => _addKeyword(),
               ),
-            ),            const SizedBox(width: 8),
+            ),
+            const SizedBox(width: 8),
             IconButton(icon: const Icon(Icons.add), onPressed: _addKeyword, tooltip: 'Add keyword'),
             IconButton(icon: const Icon(Icons.save), onPressed: _saveKeywordsToKV, tooltip: 'Save keywords to Cloud'),
           ],
@@ -392,7 +401,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     );
   }
 
-  Widget _buildKeywordList() {
+  Widget _buildKeywordList(TextStyle? referenceStyle) {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
       children: _displayKeywords.entries.map((entry) {
@@ -403,9 +412,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
           child: ExpansionTile(
             title: Text(
               category,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: referenceStyle?.copyWith(fontWeight: FontWeight.bold),
             ),
             children: [
               Padding(
@@ -413,7 +420,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
                 child: Wrap(
                   spacing: 8.0,
                   runSpacing: 4.0,
-                  children: keywords.map((keyword) => _buildKeywordItem(category, keyword)).toList(),
+                  children: keywords.map((keyword) => _buildKeywordItem(category, keyword, referenceStyle)).toList(),
                 ),
               ),
             ],
@@ -423,9 +430,8 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
     );
   }
 
-  Widget _buildKeywordItem(String category, String keyword) {
+  Widget _buildKeywordItem(String category, String keyword, TextStyle? referenceStyle) {
     final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
-    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
     return InputChip(
       label: Text(keyword),
       labelStyle: referenceStyle,
@@ -437,23 +443,20 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
           _selectedKeyword = keyword;
         });
         Clipboard.setData(ClipboardData(text: keyword));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
-        );
+        _showSnackBar('Copied to clipboard', duration: const Duration(seconds: 1));
       },
       onDeleted: isUserKeyword ? () => _removeKeyword(category, keyword) : null,
     );
   }
 
-  Widget _buildRawJsonDisplay() {
-    final referenceStyle = Theme.of(context).textTheme.bodyLarge;
+  Widget _buildRawJsonDisplay(TextStyle? referenceStyle) {
     return ExpansionTile(
       title: Text('Raw JSON Data from Cloudflare', style: referenceStyle),
       children: [
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16.0),
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: SelectableText(_rawJsonResponse, style: referenceStyle),
         ),
       ],
