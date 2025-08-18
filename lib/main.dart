@@ -202,7 +202,6 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
         }
         _textController.clear();
       });
-      _saveKeywordsToKV();
     }
   }
 
@@ -214,8 +213,11 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
           _userKeywords.remove(category);
         }
       }
+      // If the selected category was just removed (and it was a user-only category), reset the selection.
+      if (!_displayKeywords.keys.contains(_selectedCategory)) {
+        _selectedCategory = _displayKeywords.keys.isNotEmpty ? _displayKeywords.keys.first : null;
+      }
     });
-    _saveKeywordsToKV();
   }
 
   @override
@@ -259,6 +261,9 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
   }
 
   Widget _buildControlPanel() {
+    final availableCategories = _displayKeywords.keys.toList();
+    final isCategorySelected = availableCategories.contains(_selectedCategory);
+
     return Card(
       elevation: 2.0,
       margin: const EdgeInsets.all(8.0),
@@ -267,18 +272,18 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_displayKeywords.isNotEmpty)
+            if (availableCategories.isNotEmpty)
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
                   isExpanded: true,
-                  initialValue: _selectedCategory,
+                  value: isCategorySelected ? _selectedCategory : null,
                   hint: const Text('Category'),
                   decoration: const InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(),
                   ),
-                  items: _displayKeywords.keys.map((String category) {
+                  items: availableCategories.map((String category) {
                     return DropdownMenuItem<String>(
                       value: category,
                       child: Text(category, overflow: TextOverflow.ellipsis),
@@ -300,6 +305,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
                   labelText: 'Add a keyword',
                   border: OutlineInputBorder(),
                 ),
+                onSubmitted: (_) => _addKeyword(),
               ),
             ),
             const SizedBox(width: 8),
@@ -339,33 +345,21 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
 
   Widget _buildKeywordItem(String category, String keyword) {
     final isUserKeyword = _userKeywords[category]?.contains(keyword) ?? false;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [        Radio<String>(
-          value: keyword,
-          groupValue: _selectedKeyword,
-          onChanged: (String? value) {
-            if (value != null) {
-              setState(() {
-                _selectedKeyword = value;
-              });
-              Clipboard.setData(ClipboardData(text: value));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
-              );
-            }
-          },
-        ),
-        Flexible(child: Text(keyword)),
-        if (isUserKeyword)
-          IconButton(
-            icon: const Icon(Icons.close, size: 14),
-            onPressed: () => _removeKeyword(category, keyword),
-            tooltip: 'Remove keyword',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-      ],
+    return InputChip(
+      label: Text(keyword),
+      selected: _selectedKeyword == keyword,
+      pressElevation: 2.0,
+      selectedColor: Colors.blue.withAlpha(60),
+      onPressed: () {
+        setState(() {
+          _selectedKeyword = keyword;
+        });
+        Clipboard.setData(ClipboardData(text: keyword));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
+        );
+      },
+      onDeleted: isUserKeyword ? () => _removeKeyword(category, keyword) : null,
     );
   }
 
