@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
@@ -10,25 +11,74 @@ void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemeMode();
+  }
+
+  Future<void> _loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeModeIndex = prefs.getInt('themeMode') ?? ThemeMode.system.index;
+    setState(() {
+      _themeMode = ThemeMode.values[themeModeIndex];
+    });
+  }
+
+  void _changeThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('themeMode', mode.index);
+    setState(() {
+      _themeMode = mode;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Microsoft Rewards Keywords',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         visualDensity: VisualDensity.adaptivePlatformDensity,
         useMaterial3: true,
       ),
-      home: const KeywordListScreen(),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        useMaterial3: true,
+      ),
+      themeMode: _themeMode,
+      home: KeywordListScreen(
+        themeMode: _themeMode,
+        onThemeModeChanged: _changeThemeMode,
+      ),
     );
   }
 }
 
 class KeywordListScreen extends StatefulWidget {
-  const KeywordListScreen({super.key});
+  const KeywordListScreen({
+    super.key,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+  });
+
+  final ThemeMode themeMode;
+  final void Function(ThemeMode) onThemeModeChanged;
 
   @override
   State<KeywordListScreen> createState() => _KeywordListScreenState();
@@ -231,10 +281,23 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCurrentlyDark = widget.themeMode == ThemeMode.system
+        ? MediaQuery.of(context).platformBrightness == Brightness.dark
+        : widget.themeMode == ThemeMode.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Microsoft Rewards Keywords'),
+        actions: [
+          IconButton(
+            icon: Icon(isCurrentlyDark ? Icons.light_mode : Icons.dark_mode),
+            tooltip: 'Toggle Theme',
+            onPressed: () {
+              final newMode = isCurrentlyDark ? ThemeMode.light : ThemeMode.dark;
+              widget.onThemeModeChanged(newMode);
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -254,7 +317,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)));
+      return Center(child: Text('Error: $_error', style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)));
     }
     return _buildKeywordList();
   }
@@ -264,7 +327,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       padding: const EdgeInsets.all(8.0),
       child: InkWell(
         onTap: () => launchUrl(Uri.parse('https://yoshizo.hatenablog.com/entry/microsoft-rewards-search-keyword-list/')),
-        child: const Text('Source: yoshizo.hatenablog.com', style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+        child: Text('Source: yoshizo.hatenablog.com', style: TextStyle(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline)),
       ),
     );
   }
@@ -335,7 +398,12 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
           child: ExpansionTile(
-            title: Text(category, style: const TextStyle(color: Color(0xFF555555), fontSize: 18.0, fontWeight: FontWeight.bold)),
+            title: Text(
+              category,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 20.0, top: 10.0, bottom: 10.0, right: 20.0),
@@ -358,7 +426,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
       label: Text(keyword),
       selected: _selectedKeyword == keyword,
       pressElevation: 2.0,
-      selectedColor: Colors.blue.withAlpha(60),
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
       onPressed: () {
         setState(() {
           _selectedKeyword = keyword;
@@ -379,7 +447,7 @@ class _KeywordListScreenState extends State<KeywordListScreen> {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16.0),
-          color: Colors.blueGrey[50],
+          color: Theme.of(context).colorScheme.surfaceVariant,
           child: SelectableText(_rawJsonResponse),
         ),
       ],
